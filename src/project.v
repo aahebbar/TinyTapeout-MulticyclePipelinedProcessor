@@ -16,14 +16,15 @@ module tt_um_example (
     input  wire       rst_n     // reset_n - low to reset
 );
 
+    wire _unused, rst;
   // All output pins must be assigned. If not used, assign to 0.
     assign uo_out[7:5]  = {2'b00, _unused};
     assign uio_out = 0;
     assign uio_oe  = 0;
 
   // List all unused inputs to prevent warnings
-    wire _unused = &{ena, clk, rst_n, 1'b0, ui_in, uio_in};
-    wire rst = ~rst_n;
+    assign _unused = &{ena, clk, rst_n, 1'b0, ui_in, uio_in};
+    assign rst = ~rst_n;
 
 
     CPU_top CPU_TOP (
@@ -36,8 +37,8 @@ endmodule
 
 module CPU_top (
 	//Inputs for the RISC V CPU
-	input clk,
-	input rst,
+	input wire clk,
+	input wire rst,
 
 	//Output of the RISC V CPU
     output wire [4:0] COUNT
@@ -105,6 +106,7 @@ module CPU_top (
 	
 	//Instantiating the ALU unit
 	alu alu_unit (.rst(rst),
+				  .clk(clk),
 				  .op1(op1_wire),
 				  .op2(op2_wire),
 				  .valueIn(valueIn_wire),
@@ -119,11 +121,12 @@ endmodule
 module alu #(
 	parameter WIDTH = 32
 )(
-	input rst,
-	input [WIDTH-1:0] op1,
-	input [WIDTH-1:0] op2,
-	input [WIDTH-1:0] valueIn,
-	input [2:0] operation,
+	input wire clk,
+	input wire rst,
+	input wire[WIDTH-1:0] op1,
+	input wire [WIDTH-1:0] op2,
+	input wire [WIDTH-1:0] valueIn,
+	input wire [2:0] operation,
 	output reg [WIDTH-1:0] out
 );
 
@@ -144,15 +147,15 @@ module alu #(
 				3'b100: alu_out = op1 | op2;			//OR
 				3'b101: alu_out = op1 ^ op2;			//XOR
 				3'b110: alu_out = valueIn;			//LOAD
-				default: alu_out = out;
+				default: alu_out = {WIDTH{1'b0}};
 			endcase
 		end
 	end
 	
 	
 	//Assigns the value to the output "out"
-	always @ (*) begin
-		out = alu_out;
+	always @ (posedge clk) begin
+		out <= alu_out;
 	end
 	
 endmodule
@@ -164,13 +167,13 @@ module registerFile #(
 	parameter ADDR_WIDTH = 5,
 	parameter DEPTH = 2 ** ADDR_WIDTH
 )(
-	input clk,
-	input rst,
-	input wen,
-	input [ADDR_WIDTH-1:0] Rs1,
-	input [ADDR_WIDTH-1:0] Rs2,
-	input [ADDR_WIDTH-1:0] Rd,
-	input [WIDTH-1:0] dataIn,
+	input wire clk,
+	input wire rst,
+	input wire wen,
+	input wire [ADDR_WIDTH-1:0] Rs1,
+	input wire [ADDR_WIDTH-1:0] Rs2,
+	input wire [ADDR_WIDTH-1:0] Rd,
+	input wire [WIDTH-1:0] dataIn,
 	output reg [WIDTH-1:0] op1,
 	output reg [WIDTH-1:0] op2
 );
@@ -214,8 +217,8 @@ endmodule
 module instructionDecoder #(
 	parameter WIDTH = 32
 )(
-	input clk,
-	input [WIDTH-1:0] instruction,
+	input wire clk,
+	input wire [WIDTH-1:0] instruction,
 	output reg wen,
 	output wire halt,
 	output reg [4:0] Rs1,
@@ -344,9 +347,9 @@ endmodule
 module programCounter #(
 	parameter ADDR_WIDTH = 5
 )(
-	input clk,
-	input rst,
-	input halt,
+	input wire clk,
+	input wire rst,
+	input wire halt,
 	output reg [ADDR_WIDTH-1:0] count
 );
 
@@ -411,9 +414,9 @@ module programMemory #(
 	parameter WIDTH = 32,
 	parameter DEPTH = 2 ** ADDR_WIDTH
 )(
-	input clk,
-	input rst,
-	input [ADDR_WIDTH-1:0] addr,
+	input wire clk,
+	input wire rst,
+	input wire [ADDR_WIDTH-1:0] addr,
 	output reg [WIDTH-1:0] instruction
 );
 	
@@ -455,7 +458,7 @@ module programMemory #(
 
 
 	//Instruction is written at the posedge of the clk depending on the addr value
-	always @ (posedge clk, posedge rst) begin
+	always @ (posedge clk) begin
 		if (rst)
 			instruction <= {WIDTH{1'b0}};
 
